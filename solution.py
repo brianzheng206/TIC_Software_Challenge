@@ -6,7 +6,7 @@ import time
 from ultralytics import YOLO
 
 # Variable for controlling which level of the challenge to test -- set to 0 for pure keyboard control
-challengeLevel = 0
+challengeLevel = 1
 
 # Set to True if you want to run the simulation, False if you want to run on the real robot
 is_SIM = True
@@ -37,24 +37,60 @@ try:
             # Challenge 0 is pure keyboard control, you do not need to change this it is just for your own testing
 
     if challengeLevel == 1:
+        distance = 0.5
+        center = 0.0
+        offset_angle = 10.0
+        backing_up = False
+
         while rclpy.ok():
+
+            scan = lidar.checkScan()  
+            min_dist, _ = lidar.detect_obstacle_in_cone(
+                scan,
+                distance=distance,
+                center=center,
+                offset_angle=offset_angle
+            )                          
+
+            if min_dist != -1:
+                control.set_cmd_vel(-0.2, 0.0, duration=0.5)
             rclpy.spin_once(robot, timeout_sec=0.1)
             time.sleep(0.1)
-            # Write your solution here for challenge level 1
-            # It is recommended you use functions for aspects of the challenge that will be resused in later challenges
-            # For example, create a function that will detect if the robot is too close to a wall
+
+
 
     if challengeLevel == 2:
+        def detect_stop_sign_and_handle():
+            # grab the most recent image (populated by Robot.image_listener_callback)
+            img = camera.rosImg_to_cv2()
+            stop_detected, x1, y1, x2, y2 = camera.ML_predict_stop_sign(img)
+
+            if stop_detected:
+                # immediately zero velocities
+                control.send_cmd_vel(0.0, 0.0)
+                # disable user keyboard inputs so they don't override
+                control.stop_keyboard_input()
+
+                # simulate a full stop
+                time.sleep(3)
+                control.start_keyboard_input()
+                # optional: give a tiny forward nudge so you clear the junction
+                control.send_cmd_vel(0.05, 0.0)
+                time.sleep(1)
+                control.send_cmd_vel(0.0, 0.0)
+
+        # main spin loop
         while rclpy.ok():
             rclpy.spin_once(robot, timeout_sec=0.1)
             time.sleep(0.1)
-            # Write your solution here for challenge level 2
+
+            detect_stop_sign_and_handle()
             
     if challengeLevel == 3:
         while rclpy.ok():
             rclpy.spin_once(robot, timeout_sec=0.1)
             time.sleep(0.1)
-            # Write your solution here for challenge level 3 (or 3.5)
+            
 
     if challengeLevel == 4:
         while rclpy.ok():
